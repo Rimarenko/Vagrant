@@ -33,7 +33,7 @@ config.vm.provision "shell", inline: <<-SHELL
   service kibana start
   yum install epel-release -y
   yum install nginx httpd-tools -y
-  cp -f /vagrant/data/elk.ksd.ua.conf /etc/nginx/conf.d/
+  cp -f /vagrant/data/elk.test.com.conf /etc/nginx/conf.d/
   systemctl enable nginx
   service nginx start
 #  wget https://artifacts.elastic.co/downloads/logstash/logstash-6.4.0.rpm
