@@ -1,0 +1,92 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+# Префикс для LAN сети
+PUBLIC_NET="172.16.0."
+# Префикс для Internal сети
+PRIVATE_NET="192.168.15."
+# Домен который будем использовать для всей площадки
+DOMAIN="test.com"
+# Массив, в котором заданы настройки для каждой виртуальной машины
+servers=[
+  {
+  :hostname => "app1." + DOMAIN,
+  :ip_ext => PUBLIC_NET + "15",
+  :ip_int => PRIVATE_NET + "2",
+  :ram => 1000
+  },
+  {
+  :hostname => "db1." + DOMAIN,
+  :ip_ext => PUBLIC_NET + "16",
+  :ip_int => PRIVATE_NET + "3",
+  :hdd_name => "db1_hdd.vdi",
+  :hdd_size => "10000",
+  :ram => 1000
+  },
+]
+
+Vagrant.configure("2") do |config|
+  # Добавить шару между хостовой и гостевой машиной
+  #config.vm.synced_folder "D://hostmachine/shared/folder", "/src/shara"
+  # Включить\Отключить дефолтную шару
+  config.vm.synced_folder ".", "/vagrant", disabled: false
+  # Проходим по элементах массива "servers"
+  servers.each do |machine|
+    # Применяем конфигурации для каждой машины. Имя машины(как ее будет видно в Vbox GUI) находится в переменной "machine[:hostname]"
+    config.vm.define machine[:hostname] do |node|
+        # Поднять машину из образа "centos/7"
+        node.vm.box = "centos/7"
+        # Также, можно указать URL откуда стянуть нужный box если такой есть
+        #node.vm.box_url = "http://files.vagrantup.com/precise64.box"
+        # Пул портов, который будет использоваться для подключения к каждый VM через 127.0.0.1
+        #node.vm.usable_port_range = (2200..2250)
+        # Hostname который будет присвоен VM (самой ОС)
+        node.vm.hostname = machine[:hostname]
+        #VBoxManage list bridgedifs -  Чтобы узнать точное название birdge адаптера
+        # Добавление и настройка Bridge сетевого адаптера(моста). 
+        node.vm.network "public_network", ip: machine[:ip_ext], bridge: "enp6s0"
+        # Добавление и настройка внутреннего сетевого адаптера (Intnet)
+        node.vm.network "private_network", ip: machine[:ip_int], virtualbox_intnet: "vboxnet0"
+        # Настройка SSH доступа
+        # Домен/IP для подключения
+        #node.ssh.host = machine[:ip]
+        # Для доступа по ранее добавленному ключу
+        #node.ssh.private_key_path = "private_key"
+        # SSH логин пользователя
+        # node.ssh.username = "alex"
+        # SSH пароль
+        #node.ssh.password = "vagrant"
+        # Тонкие настройки для конкретного провайдера (в нашем случаи - VBoxManage)
+        node.vm.provider "virtualbox" do |vb|
+           # Размер RAM памяти
+           vb.customize ["modifyvm", :id, "--memory", machine[:ram]]
+           # Можно перезаписать название VM в Vbox GUI
+           vb.name = machine[:hostname]
+           # Добавление жесткого диска, если такой указан в конфигурации
+           if (!machine[:hdd_name].nil?)
+              # Не создавать диск, если он уже существует
+              unless File.exist?(machine[:hdd_name])
+                 vb.customize ["createhd", "--filename", machine[:hdd_name], "--size", machine[:hdd_size]]
+              end
+    	      # Подключить созданный диск к поточной VM
+			  # Если будет ошибка на "IDE" - сморти VirtualBox_help.txt
+              vb.customize ["storageattach", :id, "--storagectl", "IDE", "--port", 1, "--device", 0, "--type", "hdd", "--medium", machine[:hdd_name]]
+           end
+           # Где хранить snapshot
+           vb.customize ["modifyvm", :id, "--snapshotfolder", "/home/vagrant/snapshot"]
+           # Еще один способ сменить название VM в Vbox GUI
+           #vb.customize ["modifyvm", :id, "--name", "Gangnam Style"]
+        end
+     end
+  end
+#end
+        
+        
+        
+  # Enable provisioning with a shell script. Additional provisioners such as
+  # Puppet, Chef, Ansible, Salt, and Docker are also available. Please see the
+  # documentation for more information about their specific syntax and use.
+  config.vm.provision "shell", inline: <<-SHELL
+    yum install mc net-tools wget -y
+  SHELL
+end

@@ -1,0 +1,9 @@
+# If need delete HDD
+vboxmanage list hdds # List HDD
+vboxmanage closemedium UUID --delete  # Delete HDD
+
+# If need find Controller Name
+vboxmanage list vms # List Virtual machine
+vboxmanage showvminfo UIUID | grep "Controller Name"
+
+cat /home/users/.vagrant.d/boxes/hashicorp-VAGRANTSLASH-precise64/1.1.0/virtualbox/box.ovf | grep -i storagecontroller
